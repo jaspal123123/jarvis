@@ -14,24 +14,48 @@ class JarvisUI {
         this.analyzer = null;
         this.orbState = 'idle';
         this.orbTransitionDuration = 300; // ms
+        this.hasError = false;
 
-        this.initialize();
+        this.initialize().catch(this.handleStartupError.bind(this));
+    }
+
+    async handleStartupError(error) {
+        this.hasError = true;
+        console.error('Jarvis initialization failed:', error);
+        
+        // Update UI to show error state
+        this.updateOrbState('alert');
+        await this.typeText('Initialization failed. Please check the console for details.');
+        
+        const errorMessage = document.createElement('div');
+        errorMessage.className = 'error-message';
+        errorMessage.textContent = 'Error: ' + (error.message || 'Failed to initialize Jarvis');
+        this.responseText.appendChild(errorMessage);
     }
 
     async initialize() {
-        // Initialize Web Speech API
-        if ('webkitSpeechRecognition' in window) {
-            this.setupSpeechRecognition();
-        }
+        try {
+            // Initialize Web Speech API
+            if ('webkitSpeechRecognition' in window) {
+                this.setupSpeechRecognition();
+            } else {
+                throw new Error('Speech recognition not supported in this browser');
+            }
 
-        // Initialize Audio Context for waveform
-        this.setupAudioContext();
-        
-        // Setup event listeners
-        this.setupEventListeners();
-        
-        // Show startup animation
-        await this.playStartupSequence();
+            // Initialize Audio Context for waveform
+            this.setupAudioContext();
+            
+            // Setup event listeners
+            this.setupEventListeners();
+            
+            // Wait for NLP service to be ready
+            await nlpService.initialize();
+            
+            // Show startup animation
+            await this.playStartupSequence();
+        } catch (error) {
+            throw error; // Propagate to handleStartupError
+        }
     }
 
     setupSpeechRecognition() {
@@ -66,6 +90,27 @@ class JarvisUI {
         });
     }
 
+    async playStartupSound() {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(440, ctx.currentTime); // A4 note
+        oscillator.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.5); // A5 note
+        
+        gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+        
+        oscillator.start();
+        oscillator.stop(ctx.currentTime + 0.5);
+        
+        return new Promise(resolve => setTimeout(resolve, 500));
+    }
+
     async playStartupSequence() {
         const overlay = document.querySelector('.startup-overlay');
         
@@ -73,7 +118,7 @@ class JarvisUI {
         this.updateOrbState('processing');
         
         // Play startup sound
-        await this.playSound('startup.mp3');
+        await this.playStartupSound();
         
         // Transition to idle state
         this.updateOrbState('idle');
@@ -86,6 +131,11 @@ class JarvisUI {
     }
 
     async toggleListening() {
+        if (this.hasError) {
+            await this.typeText('Please reload the page after fixing the initialization errors.');
+            return;
+        }
+
         if (!this.isListening) {
             this.startListening();
         } else {
@@ -94,13 +144,23 @@ class JarvisUI {
     }
 
     async startListening() {
-        this.isListening = true;
-        this.startBtn.textContent = 'Listening...';
-        this.updateOrbState('listening');
-        this.startWaveformAnimation();
-        
-        if (this.recognition) {
-            this.recognition.start();
+        try {
+            // Request microphone permission first
+            await navigator.mediaDevices.getUserMedia({ audio: true });
+            
+            this.isListening = true;
+            this.startBtn.textContent = 'Listening...';
+            this.updateOrbState('listening');
+            this.startWaveformAnimation();
+            
+            if (this.recognition) {
+                this.recognition.start();
+            }
+        } catch (error) {
+            console.error('Microphone access denied:', error);
+            this.updateOrbState('alert');
+            await this.typeText('Please allow microphone access to use voice commands.');
+            this.showNotification('Microphone access required', 'error');
         }
     }
 

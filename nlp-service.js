@@ -1,6 +1,7 @@
 import { Database } from './storage/db.js';
 import { VoiceProcessor } from './voice/voice-processor.js';
 import { Config } from './config.js';
+import { pipeline } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.5.0';
 
 class NLPService {
     constructor() {
@@ -17,16 +18,19 @@ class NLPService {
     async initialize() {
         try {
             // Initialize offline models
-            this.pipeline = await pipeline('text-classification', 'Xenova/distilbert-base-uncased-finetuned-sst-2-english');
-            this.sentimentAnalyzer = await pipeline('sentiment-analysis', 'Xenova/distilbert-base-uncased-finetuned-sst-2-english');
+            this.pipeline = await pipeline('text-classification', Config.nlp.models.classification);
+            this.sentimentAnalyzer = await pipeline('sentiment-analysis', Config.nlp.models.sentiment);
             
             // Load conversation history
             await this.loadConversationHistory();
             
             // Initialize wake word detector
             await this.voiceProcessor.initializeWakeWordDetector();
+            
+            console.log('NLP Service initialized successfully');
         } catch (error) {
             console.error('Error initializing NLP models:', error);
+            throw error; // Propagate the error for proper handling
         }
     }
 
@@ -127,6 +131,16 @@ class NLPService {
         // Entity recognition for names, dates, locations, etc.
         const entities = await this.pipeline(text, { task: 'ner' });
         return entities;
+    }
+
+    async craftResponse(intent, sentiment, entities, context) {
+        // For now, return a simple response based on sentiment
+        if (sentiment.label === 'POSITIVE') {
+            return "I'm glad you're feeling positive! How can I assist you further?";
+        } else if (sentiment.label === 'NEGATIVE') {
+            return "I understand this might be frustrating. Let me help you with that.";
+        }
+        return "I'm here to help. What would you like me to do?";
     }
 }
 
