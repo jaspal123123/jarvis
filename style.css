@@ -1,213 +1,502 @@
-body {
-  background: linear-gradient(135deg, #181c24 0%, #232a34 100%);
-  color: #e0e6ed;
-  font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+/* Basic reset */
+* {
   margin: 0;
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-.container {
-  background: rgba(30, 34, 44, 0.95);
-  border-radius: 2rem;
-  box-shadow: 0 8px 32px 0 rgba(0,0,0,0.37);
-  padding: 2rem 1.5rem;
-  max-width: 350px;
-  width: 100%;
+/* Body styles */
+body {
+  font-family: 'Arial', sans-serif;
+  background-color: #1d1f2a;
+  color: #f1f1f1;
   display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin: 0;
   flex-direction: column;
-  align-items: center;
 }
 
-header {
-  margin-bottom: 1.5rem;
-}
-
-.animated-greeting {
-  font-size: 1.7rem;
-  font-weight: 600;
-  letter-spacing: 1px;
-  background: linear-gradient(90deg, #00ffe7, #007cf0, #00ffe7);
-  background-size: 200% 200%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: gradient-move 2.5s linear infinite, fade-in 1.2s;
+#app {
   text-align: center;
+  max-width: 600px;
+  width: 100%;
 }
 
-@keyframes gradient-move {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 100% 50%; }
+/* Container for Jarvis */
+#jarvis-container {
+  position: relative;
+  background-color: #2e3240;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 }
 
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(-20px); }
-  to { opacity: 1; transform: translateY(0); }
+/* Avatar styles */
+#jarvis-avatar {
+  width: 150px;
+  height: 150px;
+  margin: 20px auto;
 }
 
-.personality-animation {
-  width: 70px;
-  height: 70px;
-  margin: 0 auto 1.5rem auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+#avatar-img {
+  width: 100%;
+  border-radius: 50%;
 }
 
-.personality-animation::before {
-  content: '';
-  display: block;
+/* Waveform animation */
+#waveform {
+  width: 100%;
+  height: 10px;
+  margin-top: 20px;
+  background-color: #FFBB33;
+  border-radius: 5px;
+  position: relative;
+  animation: waveform-animation 1s infinite ease-in-out;
+}
+
+/* Response text */
+#response-text {
+  font-size: 18px;
+  font-weight: 400;
+  color: #fff;
+  margin-top: 10px;
+}
+
+/* Button to activate Jarvis */
+#start-btn {
+  background-color: #FFBB33;
+  color: #2e3240;
+  padding: 15px 40px;
+  font-size: 18px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+#start-btn:hover {
+  background-color: #FF9933;
+}
+
+/* Waveform animation keyframes */
+@keyframes waveform-animation {
+  0% { width: 10%; }
+  50% { width: 50%; }
+  100% { width: 10%; }
+}
+
+/* Jarvis Orb */
+.jarvis-orb {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, var(--orb-inner-color, #4a9eff), var(--orb-outer-color, #0052cc));
+    box-shadow: 
+        0 0 30px var(--orb-glow-color, rgba(74, 158, 255, 0.5)),
+        inset 0 0 20px rgba(255, 255, 255, 0.4);
+    position: relative;
+    margin: 20px auto;
+    transform-style: preserve-3d;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.orb-glow {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: transparent;
+    box-shadow: 0 0 60px var(--orb-glow-color, rgba(74, 158, 255, 0.3));
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.orb-inner {
+    position: absolute;
+    width: 80%;
+    height: 80%;
+    top: 10%;
+    left: 10%;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 40%, 
+        transparent,
+        var(--orb-inner-color, #4a9eff) 60%);
+    filter: blur(4px);
+    animation: rotate 8s linear infinite;
+}
+
+.orb-particles {
+    position: absolute;
+    width: 140%;
+    height: 140%;
+    top: -20%;
+    left: -20%;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0.5;
+    background: 
+        radial-gradient(circle at center, transparent 35%, var(--orb-particle-color, rgba(74, 158, 255, 0.2)) 36%, transparent 100%),
+        radial-gradient(circle at 30% 40%, transparent 25%, var(--orb-particle-color, rgba(74, 158, 255, 0.2)) 26%, transparent 30%);
+    animation: rotate-particles 12s linear infinite;
+}
+
+.orb-rays {
+    position: absolute;
+    width: 160%;
+    height: 160%;
+    top: -30%;
+    left: -30%;
+    border-radius: 50%;
+    pointer-events: none;
+    background: conic-gradient(
+        from 0deg,
+        transparent 0deg,
+        var(--orb-ray-color, rgba(74, 158, 255, 0.1)) 5deg,
+        transparent 10deg,
+        var(--orb-ray-color, rgba(74, 158, 255, 0.1)) 15deg,
+        transparent 20deg
+    );
+    animation: rotate-rays 20s linear infinite;
+}
+
+/* State-specific styles */
+.jarvis-orb[data-state="idle"] {
+    --orb-inner-color: #4a9eff;
+    --orb-outer-color: #0052cc;
+    --orb-glow-color: rgba(74, 158, 255, 0.5);
+    --orb-particle-color: rgba(74, 158, 255, 0.2);
+    --orb-ray-color: rgba(74, 158, 255, 0.1);
+}
+
+.jarvis-orb[data-state="listening"] {
+    --orb-inner-color: #33FF57;
+    --orb-outer-color: #00991F;
+    --orb-glow-color: rgba(51, 255, 87, 0.5);
+    --orb-particle-color: rgba(51, 255, 87, 0.2);
+    --orb-ray-color: rgba(51, 255, 87, 0.1);
+}
+
+.jarvis-orb[data-state="processing"] {
+    --orb-inner-color: #FFBB33;
+    --orb-outer-color: #CC7700;
+    --orb-glow-color: rgba(255, 187, 51, 0.5);
+    --orb-particle-color: rgba(255, 187, 51, 0.2);
+    --orb-ray-color: rgba(255, 187, 51, 0.1);
+}
+
+.jarvis-orb[data-state="alert"] {
+    --orb-inner-color: #FF3333;
+    --orb-outer-color: #CC0000;
+    --orb-glow-color: rgba(255, 51, 51, 0.5);
+    --orb-particle-color: rgba(255, 51, 51, 0.2);
+    --orb-ray-color: rgba(255, 51, 51, 0.1);
+}
+
+.jarvis-orb[data-state="friendly"] {
+    --orb-inner-color: #B94FFF;
+    --orb-outer-color: #6B00CC;
+    --orb-glow-color: rgba(185, 79, 255, 0.5);
+    --orb-particle-color: rgba(185, 79, 255, 0.2);
+    --orb-ray-color: rgba(185, 79, 255, 0.1);
+}
+
+/* Hover effects */
+.jarvis-orb:hover {
+    transform: scale(1.05) translateY(-5px);
+}
+
+.jarvis-orb:hover .orb-glow {
+    animation: pulse-hover 1s ease-in-out infinite;
+}
+
+/* New keyframe animations */
+@keyframes pulse {
+    0%, 100% { 
+        transform: scale(1);
+        opacity: 0.5;
+    }
+    50% { 
+        transform: scale(1.2);
+        opacity: 0.8;
+    }
+}
+
+@keyframes pulse-hover {
+    0%, 100% { 
+        transform: scale(1.1);
+        opacity: 0.7;
+    }
+    50% { 
+        transform: scale(1.3);
+        opacity: 0.9;
+    }
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes rotate-particles {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(-360deg); }
+}
+
+@keyframes rotate-rays {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* State transition animation */
+.jarvis-orb {
+    transition: 
+        --orb-inner-color 0.3s ease,
+        --orb-outer-color 0.3s ease,
+        --orb-glow-color 0.3s ease,
+        --orb-particle-color 0.3s ease,
+        --orb-ray-color 0.3s ease,
+        transform 0.3s ease;
+}
+
+/* Advanced Waveform */
+.waveform-container {
+  height: 60px;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.wave {
+  position: absolute;
   width: 100%;
   height: 100%;
+  background: linear-gradient(90deg, transparent, #4a9eff, transparent);
+  animation: wave 1.5s linear infinite;
+  opacity: 0.3;
+}
+
+.wave:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.wave:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* Startup Animation */
+.startup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #1d1f2a;
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  animation: fadeOut 2s ease-out forwards;
+}
+
+.scan-line {
+  position: absolute;
+  width: 100%;
+  height: 2px;
+  background: #4a9eff;
+  animation: scan 2s linear infinite;
+}
+
+/* Notification Banner */
+.notification {
+  position: fixed;
+  top: 20px;
+  right: -300px;
+  width: 300px;
+  padding: 15px;
+  background: rgba(74, 158, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-left: 4px solid #4a9eff;
+  border-radius: 4px;
+  animation: slideIn 0.5s forwards;
+}
+
+.notification.exit {
+  animation: slideOut 0.5s forwards;
+}
+
+/* Text Animation */
+.typing-text {
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 2px solid #4a9eff;
+  animation: typing 3s steps(40, end), blink 0.75s step-end infinite;
+}
+
+/* Theme Transition */
+.theme-transition {
+  transition: all 0.5s ease;
+}
+
+/* Face Recognition Effect */
+.face-scan {
+  position: absolute;
+  width: 200px;
+  height: 200px;
+  border: 2px solid #4a9eff;
   border-radius: 50%;
-  background: radial-gradient(circle, #00ffe7 60%, #007cf0 100%);
-  box-shadow: 0 0 32px 8px #00ffe744, 0 0 64px 16px #007cf044;
-  animation: pulse 1.2s infinite cubic-bezier(0.4, 0, 0.2, 1);
+  animation: scan 2s linear infinite, glow 1.5s ease-in-out infinite;
+}
+
+/* Terminal styles */
+.terminal-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 400px;
+    height: 200px;
+    background: rgba(0, 0, 0, 0.8);
+    border-radius: 8px;
+    overflow: hidden;
+    font-family: 'Consolas', monospace;
+    z-index: 100;
+}
+
+.terminal-header {
+    padding: 8px 12px;
+    background: #1a1a1a;
+    color: #4a9eff;
+    font-size: 14px;
+    border-bottom: 1px solid #333;
+}
+
+.terminal-content {
+    height: calc(100% - 33px);
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.terminal-line {
+    color: #a8a8a8;
+    font-size: 12px;
+    margin: 4px 0;
+    opacity: 0;
+    animation: fadeIn 0.3s forwards;
+}
+
+/* Ripple effect */
+.ripple {
+    position: fixed;
+    border: 2px solid #4a9eff;
+    border-radius: 50%;
+    animation: ripple 1s linear;
+    pointer-events: none;
+}
+
+/* Animation Keyframes */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
 }
 
 @keyframes pulse {
-  0% { transform: scale(1); opacity: 1; }
-  70% { transform: scale(1.15); opacity: 0.7; }
-  100% { transform: scale(1); opacity: 1; }
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.2); opacity: 0.8; }
 }
 
-.speech-display {
-  min-height: 2.5rem;
-  background: rgba(24, 28, 36, 0.7);
-  border-radius: 1rem;
-  box-shadow: 0 2px 8px 0 #00ffe722;
-  padding: 0.8rem 1rem;
-  margin-bottom: 1.2rem;
-  width: 100%;
-  font-size: 1.1rem;
-  text-align: center;
-  transition: background 0.3s;
-  word-break: break-word;
+@keyframes wave {
+  0% { transform: translateX(-100%) scaleY(0.5); }
+  50% { transform: translateX(0) scaleY(1); }
+  100% { transform: translateX(100%) scaleY(0.5); }
 }
 
-#start-btn {
-  background: linear-gradient(90deg, #007cf0 0%, #00ffe7 100%);
-  color: #181c24;
-  border: none;
-  border-radius: 1.5rem;
-  padding: 0.8rem 2.2rem;
-  font-size: 1.1rem;
-  font-weight: 600;
-  box-shadow: 0 2px 8px 0 #00ffe722;
-  cursor: pointer;
-  transition: background 0.2s, transform 0.1s;
-}
-#start-btn:active {
-  transform: scale(0.97);
-  background: linear-gradient(90deg, #00ffe7 0%, #007cf0 100%);
+@keyframes scan {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(100vh); }
 }
 
-@media (max-width: 500px) {
-  .container {
-    max-width: 98vw;
-    padding: 1.2rem 0.3rem;
-  }
-  .animated-greeting {
-    font-size: 1.1rem;
-  }
-  .personality-animation {
-    width: 48px;
-    height: 48px;
-  }
-  .speech-display {
-    font-size: 0.98rem;
-    padding: 0.6rem 0.5rem;
-  }
-  #start-btn {
-    font-size: 1rem;
-    padding: 0.7rem 1.2rem;
-  }
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; visibility: hidden; }
 }
 
-.wake-word-animation {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin: 1rem 0;
-  height: 32px;
-}
-.wake-word-animation .dot {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: radial-gradient(circle, #00ffe7 60%, #007cf0 100%);
-  box-shadow: 0 0 32px 8px #00ffe799, 0 0 64px 16px #007cf099;
-  animation: wake-pulse 1s infinite cubic-bezier(0.4, 0, 0.2, 1);
-}
-@keyframes wake-pulse {
-  0% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.3); opacity: 0.7; }
-  100% { transform: scale(1); opacity: 1; }
+@keyframes slideIn {
+  from { right: -300px; }
+  to { right: 20px; }
 }
 
-.reminders {
-  margin: 1rem 0 0.5rem 0;
-  width: 100%;
-  color: #00ffe7;
-  font-size: 0.98rem;
-  background: rgba(24, 28, 36, 0.5);
-  border-radius: 1rem;
-  padding: 0.5rem 0.8rem;
-  box-shadow: 0 1px 4px 0 #00ffe722;
-  display: none;
-}
-.reminders.active {
-  display: block;
+@keyframes slideOut {
+  from { right: 20px; }
+  to { right: -300px; }
 }
 
-.email-area {
-  margin: 1rem 0 0.5rem 0;
-  width: 100%;
-  color: #e0e6ed;
-  background: rgba(24, 28, 36, 0.7);
-  border-radius: 1rem;
-  padding: 0.7rem 1rem;
-  box-shadow: 0 1px 4px 0 #007cf022;
-  font-size: 1rem;
+@keyframes typing {
+  from { width: 0; }
+  to { width: 100%; }
 }
 
-#youtube-player-container {
-  background: rgba(24, 28, 36, 0.7);
-  border-radius: 1rem;
-  box-shadow: 0 1px 8px 0 #007cf022;
-  padding: 0.5rem 0.5rem 1rem 0.5rem;
-  width: 100%;
-  max-width: 350px;
-}
-#youtube-player {
-  border-radius: 0.7rem;
-  background: #000;
-}
-#yt-play, #yt-pause, #yt-close {
-  background: linear-gradient(90deg, #007cf0 0%, #00ffe7 100%);
-  color: #181c24;
-  border: none;
-  border-radius: 1rem;
-  padding: 0.4rem 1.1rem;
-  font-size: 0.98rem;
-  font-weight: 600;
-  box-shadow: 0 1px 4px 0 #00ffe722;
-  cursor: pointer;
-  transition: background 0.2s, transform 0.1s;
-}
-#yt-play:active, #yt-pause:active, #yt-close:active {
-  transform: scale(0.97);
-  background: linear-gradient(90deg, #00ffe7 0%, #007cf0 100%);
+@keyframes blink {
+  from, to { border-color: transparent; }
+  50% { border-color: #4a9eff; }
 }
 
-@media (max-width: 500px) {
-  #youtube-player {
-    height: 140px;
-  }
-  .email-area, .reminders {
-    font-size: 0.92rem;
-    padding: 0.5rem 0.5rem;
-  }
-} 
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(74, 158, 255, 0.5); }
+  50% { box-shadow: 0 0 40px rgba(74, 158, 255, 0.8); }
+}
+
+@keyframes ripple {
+    from {
+        width: 0;
+        height: 0;
+        opacity: 1;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+    to {
+        width: 500px;
+        height: 500px;
+        opacity: 0;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+/* Theme variations */
+.theme-professional {
+    --primary-color: #2C3E50;
+    --accent-color: #3498DB;
+    --text-color: #ECF0F1;
+}
+
+.theme-funny {
+    --primary-color: #FF4E50;
+    --accent-color: #FC913A;
+    --text-color: #FFF;
+}
+
+.theme-serious {
+    --primary-color: #2C3E50;
+    --accent-color: #95A5A6;
+    --text-color: #ECF0F1;
+}
+
+/* Notification variations */
+.notification-info { border-left-color: #4a9eff; }
+.notification-success { border-left-color: #33FF57; }
+.notification-warning { border-left-color: #FFBB33; }
+.notification-error { border-left-color: #FF3333; }
