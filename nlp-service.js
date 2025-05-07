@@ -12,6 +12,42 @@ class NLPService {
         this.voiceProcessor = new VoiceProcessor();
         this.currentMood = 'neutral';
         this.personality = Config.defaultPersonality;
+        this.qaModel = null;
+        this.personalities = {
+            friendly: {
+                greetings: [
+                    "Hey buddy! Jarvis at your service, how can I make your day awesome?",
+                    "Hi there! Ready to tackle anything you throw my way!",
+                    "Hello friend! What exciting things shall we do today?"
+                ],
+                responseStyle: 'casual',
+                emojis: true,
+                pitch: 1.1,
+                speed: 1.05
+            },
+            funny: {
+                greetings: [
+                    "Beep boop - just kidding, I don't actually beep! What's up?",
+                    "Your favorite AI assistant has arrived! Let's have some fun!",
+                    "Ready to roll! Though technically I don't roll, I compute... but that's less catchy!"
+                ],
+                responseStyle: 'humorous',
+                emojis: true,
+                pitch: 1.2,
+                speed: 1.1
+            },
+            serious: {
+                greetings: [
+                    "Jarvis online. How may I assist you today?",
+                    "Good day. I'm ready to help with any task you require.",
+                    "Professional assistance ready. What do you need?"
+                ],
+                responseStyle: 'formal',
+                emojis: false,
+                pitch: 0.95,
+                speed: 0.95
+            }
+        };
         this.initialize();
     }
 
@@ -20,6 +56,9 @@ class NLPService {
             // Initialize offline models
             this.pipeline = await pipeline('text-classification', Config.nlp.models.classification);
             this.sentimentAnalyzer = await pipeline('sentiment-analysis', Config.nlp.models.sentiment);
+            
+            // Initialize Q&A model
+            this.qaModel = await pipeline('question-answering', 'Xenova/distilbert-base-cased-distilled-squad');
             
             // Load conversation history
             await this.loadConversationHistory();
@@ -36,6 +75,17 @@ class NLPService {
 
     async analyzeInput(text) {
         try {
+            // First, check for commands
+            const commandResult = await this.processCommand(text);
+            if (commandResult) {
+                return {
+                    type: 'command',
+                    result: commandResult,
+                    timestamp: Date.now(),
+                    originalText: text
+                };
+            }
+
             const analysis = {
                 intent: await this.classifyIntent(text),
                 sentiment: await this.analyzeSentiment(text),
@@ -66,19 +116,88 @@ class NLPService {
         return result[0];
     }
 
+    async processCommand(text) {
+        const lowerText = text.toLowerCase();
+        
+        // Check for system commands
+        if (lowerText.includes('set personality to')) {
+            const personality = lowerText.split('set personality to')[1].trim();
+            if (this.personalities[personality]) {
+                this.currentPersonality = personality;
+                return {
+                    action: 'setPersonality',
+                    value: personality,
+                    response: `Personality switched to ${personality} mode.`
+                };
+            }
+        }
+        
+        // Check for task-related commands
+        if (lowerText.includes('remind me to')) {
+            const reminder = lowerText.split('remind me to')[1].trim();
+            // Extract time if present
+            const timeMatch = reminder.match(/in (\d+) (minutes?|hours?|days?)/);
+            let triggerTime = Date.now();
+            if (timeMatch) {
+                const [_, amount, unit] = timeMatch;
+                const multiplier = unit.startsWith('minute') ? 60000 :
+                                 unit.startsWith('hour') ? 3600000 :
+                                 unit.startsWith('day') ? 86400000 : 0;
+                triggerTime += amount * multiplier;
+            }
+            
+            await this.db.scheduleReminder({
+                title: 'Reminder',
+                message: reminder,
+                triggerTime
+            });
+            
+            return {
+                action: 'setReminder',
+                value: reminder,
+                response: `I'll remind you to ${reminder}`
+            };
+        }
+        
+        // Check for web-related commands
+        if (lowerText.includes('search for')) {
+            const query = lowerText.split('search for')[1].trim();
+            const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(query)}`;
+            return {
+                action: 'search',
+                value: searchUrl,
+                response: `Searching for "${query}" on DuckDuckGo.`
+            };
+        }
+        
+        return null;
+    }
+
     async generateResponse(analysis) {
-        const { intent, sentiment, entities, context } = analysis;
+        const { type, result } = analysis;
         
-        // Update AI mood based on user's emotional state
-        this.currentMood = this.determineResponseMood(sentiment);
+        // Handle command responses
+        if (type === 'command') {
+            return {
+                text: result.response,
+                mood: 'professional',
+                animation: 'process',
+                voice: this.getVoiceModulation()
+            };
+        }
         
-        // Generate contextually aware response
+        // Handle conversation responses
+        const personality = this.personalities[this.currentPersonality];
         const response = {
-            text: await this.craftResponse(intent, sentiment, entities, context),
-            mood: this.currentMood,
+            text: await this.craftResponse(analysis, personality),
+            mood: this.determineResponseMood(analysis.sentiment),
             animation: this.getAppropriateAnimation(),
             voice: this.getVoiceModulation()
         };
+
+        if (personality.emojis) {
+            response.text = this.addEmojis(response.text);
+        }
 
         return response;
     }
@@ -133,14 +252,67 @@ class NLPService {
         return entities;
     }
 
-    async craftResponse(intent, sentiment, entities, context) {
-        // For now, return a simple response based on sentiment
-        if (sentiment.label === 'POSITIVE') {
-            return "I'm glad you're feeling positive! How can I assist you further?";
-        } else if (sentiment.label === 'NEGATIVE') {
-            return "I understand this might be frustrating. Let me help you with that.";
+    async craftResponse(analysis, personality) {
+        const { intent, sentiment, entities, context } = analysis;
+        
+        // Use Q&A model for general knowledge questions
+        if (intent.label === 'question') {
+            try {
+                const answer = await this.qaModel({
+                    question: analysis.originalText,
+                    context: this.getRelevantContext(analysis.originalText)
+                });
+                if (answer.score > 0.7) {
+                    return this.formatResponse(answer.answer, personality.responseStyle);
+                }
+            } catch (error) {
+                console.error('Q&A model error:', error);
+            }
         }
-        return "I'm here to help. What would you like me to do?";
+
+        // Fallback to sentiment-based response
+        if (sentiment.label === 'POSITIVE') {
+            return this.formatResponse("I'm glad you're feeling positive! How can I assist you further?", personality.responseStyle);
+        } else if (sentiment.label === 'NEGATIVE') {
+            return this.formatResponse("I understand this might be frustrating. Let me help you with that.", personality.responseStyle);
+        }
+        
+        return this.formatResponse("I'm here to help. What would you like me to do?", personality.responseStyle);
+    }
+
+    formatResponse(text, style) {
+        switch (style) {
+            case 'casual':
+                return text.replace(/\./g, '!').replace(/I am/g, "I'm");
+            case 'humorous':
+                return text + " 😊";
+            case 'formal':
+                return text.replace(/!+/g, '.').replace(/gonna/g, "going to");
+            default:
+                return text;
+        }
+    }
+
+    addEmojis(text) {
+        // Add relevant emojis based on content
+        const emojiMap = {
+            'help': '💪',
+            'search': '🔍',
+            'reminder': '⏰',
+            'good': '👍',
+            'great': '🎉',
+            'happy': '😊',
+            'sad': '😢',
+            'thanks': '🙏'
+        };
+
+        Object.keys(emojiMap).forEach(key => {
+            if (text.toLowerCase().includes(key)) {
+                text += ` ${emojiMap[key]}`;
+            }
+        });
+
+        return text;
     }
 }
 

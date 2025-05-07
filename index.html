@@ -5,15 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jarvis AI Assistant</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/qna"></script>
-    <script src="https://unpkg.com/@xenova/transformers"></script>
+    <script src="script.js" type="module"></script>
 </head>
 <body>
     <!-- Startup Animation -->
     <div class="startup-overlay">
         <div class="scan-line"></div>
-        <div class="jarvis-orb">
+        <div class="jarvis-orb" data-state="idle">
+            <div class="orb-inner"></div>
+            <div class="orb-particles"></div>
+            <div class="orb-rays"></div>
             <div class="orb-glow"></div>
         </div>
     </div>
@@ -28,7 +29,7 @@
                 <div class="orb-glow"></div>
             </div>
 
-            <!-- Advanced Waveform -->
+            <!-- Sound Wave Visualizer -->
             <div class="waveform-container">
                 <div class="wave"></div>
                 <div class="wave"></div>
@@ -38,19 +39,18 @@
             <!-- Response Area -->
             <div id="response-text" class="typing-text"></div>
 
-            <!-- Face Recognition Effect (Hidden by default) -->
-            <div class="face-scan" style="display: none;"></div>
-
-            <button id="start-btn">Activate Jarvis</button>
+            <!-- Floating Buttons -->
+            <div class="floating-buttons">
+                <button id="mic-toggle" class="floating-button">🎤 Mic</button>
+                <button id="personality-switch" class="floating-button">🧠 Mode</button>
+            </div>
         </div>
     </div>
 
     <!-- Terminal Log -->
-    <div id="terminal-log" class="terminal-container">
+    <div id="terminal-log" class="terminal-container glassmorphic">
         <div class="terminal-header">Terminal Log</div>
         <div class="terminal-content"></div>
     </div>
-
-    <script src="script.js" type="module"></script>
 </body>
 </html>
