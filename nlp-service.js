@@ -1,18 +1,32 @@
 import { Database } from './storage/db.js';
-import { VoiceProcessor } from './voice/voice-processor.js';
+import { SpeechSynthesis } from './voice/speech-synthesis.js';
 import { Config } from './config.js';
-import { pipeline } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.5.0';
+
+// Import NLP modules
+import { IntentClassifier } from './nlp/intent-classifier.js';
+import { SentimentAnalyzer } from './nlp/sentiment-analyzer.js';
+import { ContextManager } from './nlp/context-manager.js';
+import { SelfLearningEngine } from './nlp/self-learning.js';
 
 class NLPService {
     constructor() {
-        this.pipeline = null;
-        this.sentimentAnalyzer = null;
-        this.contextMemory = [];
+        // Database and storage
         this.db = new Database();
-        this.voiceProcessor = new VoiceProcessor();
+        
+        // NLP components
+        this.intentClassifier = new IntentClassifier();
+        this.sentimentAnalyzer = new SentimentAnalyzer();
+        this.contextManager = new ContextManager();
+        this.selfLearningEngine = new SelfLearningEngine();
+        
+        // Speech synthesis
+        this.speechSynthesis = new SpeechSynthesis();
+        
+        // State variables
         this.currentMood = 'neutral';
         this.personality = Config.defaultPersonality;
-        this.qaModel = null;
+        
+        // Personalities configuration
         this.personalities = {
             friendly: {
                 greetings: [
@@ -53,120 +67,235 @@ class NLPService {
 
     async initialize() {
         try {
-            // Initialize offline models
-            this.pipeline = await pipeline('text-classification', Config.nlp.models.classification);
-            this.sentimentAnalyzer = await pipeline('sentiment-analysis', Config.nlp.models.sentiment);
+            console.log('Initializing NLP Service...');
             
-            // Initialize Q&A model
-            this.qaModel = await pipeline('question-answering', 'Xenova/distilbert-base-cased-distilled-squad');
+            // Initialize database
+            await this.db.initialize();
+            
+            // Initialize NLP components
+            await this.intentClassifier.initialize();
+            await this.sentimentAnalyzer.initialize();
+            await this.contextManager.initialize();
+            await this.selfLearningEngine.initialize();
+            
+            // Initialize speech synthesis
+            await this.speechSynthesis.initialize();
             
             // Load conversation history
             await this.loadConversationHistory();
             
-            // Initialize wake word detector
-            await this.voiceProcessor.initializeWakeWordDetector();
+            // Load user preferences
+            await this.loadUserPreferences();
             
             console.log('NLP Service initialized successfully');
+            return true;
         } catch (error) {
-            console.error('Error initializing NLP models:', error);
+            console.error('Error initializing NLP service:', error);
             throw error; // Propagate the error for proper handling
         }
     }
 
+    async loadUserPreferences() {
+        try {
+            const preferences = await this.db.getItem('preferences', 'userSettings');
+            if (preferences) {
+                // Apply user preferences
+                if (preferences.personality) {
+                    this.personality = preferences.personality;
+                }
+                console.log('User preferences loaded');
+            }
+        } catch (error) {
+            console.error('Error loading user preferences:', error);
+        }
+    }
+    
     async analyzeInput(text) {
         try {
-            // First, check for commands
-            const commandResult = await this.processCommand(text);
-            if (commandResult) {
-                return {
-                    type: 'command',
-                    result: commandResult,
-                    timestamp: Date.now(),
-                    originalText: text
-                };
+            // First, check for commands using the intent classifier
+            const intent = await this.intentClassifier.classify(text);
+            
+            if (intent.type === 'command') {
+                const commandResult = await this.processCommand(text, intent);
+                if (commandResult) {
+                    // Log the command for learning
+                    this.selfLearningEngine.logInteraction({
+                        input: text,
+                        intent: intent,
+                        response: commandResult.response,
+                        timestamp: Date.now()
+                    });
+                    
+                    return {
+                        type: 'command',
+                        result: commandResult,
+                        timestamp: Date.now(),
+                        originalText: text
+                    };
+                }
             }
 
+            // Analyze the input
+            const sentiment = await this.sentimentAnalyzer.analyze(text);
+            const entities = await this.intentClassifier.extractEntities(text);
+            const context = this.contextManager.getCurrentContext();
+            
             const analysis = {
-                intent: await this.classifyIntent(text),
-                sentiment: await this.analyzeSentiment(text),
-                entities: await this.extractEntities(text),
-                context: this.getCurrentContext(),
+                intent: intent,
+                sentiment: sentiment,
+                entities: entities,
+                context: context,
                 timestamp: Date.now(),
                 originalText: text
             };
 
-            // Store conversation in memory and database
-            this.updateContext(analysis);
+            // Store conversation in context manager and database
+            this.contextManager.updateContext(analysis);
             await this.db.storeConversation(analysis);
+            
+            // Log the interaction for learning
+            this.selfLearningEngine.logInteraction(analysis);
 
             return analysis;
         } catch (error) {
             console.error('Error analyzing input:', error);
-            return null;
-        }
-    }
-
-    async classifyIntent(text) {
-        const result = await this.pipeline(text);
-        return result[0];
-    }
-
-    async analyzeSentiment(text) {
-        const result = await this.sentimentAnalyzer(text);
-        return result[0];
-    }
-
-    async processCommand(text) {
-        const lowerText = text.toLowerCase();
-        
-        // Check for system commands
-        if (lowerText.includes('set personality to')) {
-            const personality = lowerText.split('set personality to')[1].trim();
-            if (this.personalities[personality]) {
-                this.currentPersonality = personality;
-                return {
-                    action: 'setPersonality',
-                    value: personality,
-                    response: `Personality switched to ${personality} mode.`
-                };
-            }
-        }
-        
-        // Check for task-related commands
-        if (lowerText.includes('remind me to')) {
-            const reminder = lowerText.split('remind me to')[1].trim();
-            // Extract time if present
-            const timeMatch = reminder.match(/in (\d+) (minutes?|hours?|days?)/);
-            let triggerTime = Date.now();
-            if (timeMatch) {
-                const [_, amount, unit] = timeMatch;
-                const multiplier = unit.startsWith('minute') ? 60000 :
-                                 unit.startsWith('hour') ? 3600000 :
-                                 unit.startsWith('day') ? 86400000 : 0;
-                triggerTime += amount * multiplier;
-            }
-            
-            await this.db.scheduleReminder({
-                title: 'Reminder',
-                message: reminder,
-                triggerTime
-            });
-            
             return {
-                action: 'setReminder',
-                value: reminder,
-                response: `I'll remind you to ${reminder}`
+                type: 'error',
+                error: error.message,
+                timestamp: Date.now(),
+                originalText: text
             };
         }
+    }
+
+    async processCommand(text, intent) {
+        const { command, confidence, entities } = intent;
         
-        // Check for web-related commands
-        if (lowerText.includes('search for')) {
-            const query = lowerText.split('search for')[1].trim();
-            const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(query)}`;
+        // Only process if we have high confidence this is a command
+        if (confidence < Config.nlp.commandConfidenceThreshold) {
+            return null;
+        }
+        
+        try {
+            switch (command) {
+                case 'changePersonality':
+                    const personality = entities.personality || 'friendly';
+                    if (this.personalities[personality]) {
+                        this.personality = personality;
+                        await this.db.setItem('preferences', 'userSettings', { personality });
+                        return {
+                            command: 'changePersonality',
+                            data: { personality },
+                            response: `Personality switched to ${personality} mode.`
+                        };
+                    }
+                    break;
+                    
+                case 'setReminder':
+                    const reminderText = entities.text || text.split('remind me to')[1]?.trim() || 'something important';
+                    let reminderTime = entities.time || Date.now() + 3600000; // Default 1 hour
+                    
+                    // If time is a string, parse it
+                    if (typeof reminderTime === 'string') {
+                        const timeMatch = reminderTime.match(/in (\d+) (minutes?|hours?|days?)/);
+                        if (timeMatch) {
+                            const [_, amount, unit] = timeMatch;
+                            const multiplier = unit.startsWith('minute') ? 60000 :
+                                             unit.startsWith('hour') ? 3600000 :
+                                             unit.startsWith('day') ? 86400000 : 0;
+                            reminderTime = Date.now() + (parseInt(amount) * multiplier);
+                        }
+                    }
+                    
+                    return {
+                        command: 'setReminder',
+                        data: { text: reminderText, time: reminderTime },
+                        response: `I'll remind you to ${reminderText} at ${new Date(reminderTime).toLocaleString()}`
+                    };
+                    
+                case 'searchWeb':
+                    const query = entities.query || text.split('search for')[1]?.trim() || text;
+                    return {
+                        command: 'searchWeb',
+                        data: { query },
+                        response: `Searching the web for "${query}"...`
+                    };
+                    
+                case 'playMusic':
+                    const musicQuery = entities.query || text.split('play')[1]?.trim() || 'some music';
+                    return {
+                        command: 'playMusic',
+                        data: { query: musicQuery },
+                        response: `Playing ${musicQuery}...`
+                    };
+                    
+                case 'stopMusic':
+                    return {
+                    
+                case 'get_date':
+                    result = this.handleDateCommand();
+                    break;
+                    
+                case 'change_personality':
+                    result = await this.handlePersonalityCommand(text, entities);
+                    break;
+                    
+                case 'system_status':
+                    result = this.handleSystemStatusCommand();
+                    break;
+                    
+                case 'stop_speaking':
+                    this.speechSynthesis.stop();
+                    result = {
+                        response: "I'll be quiet now.",
+                        success: true,
+                        animation: 'acknowledge'
+                    };
+                    break;
+                    
+                case 'volume_control':
+                    result = this.handleVolumeCommand(text, entities);
+                    break;
+                case 'readEmails':
+                    const emailFilter = entities.filter || 'unread';
+                    return {
+                        command: 'readEmails',
+                        data: { filter: emailFilter },
+                        response: 'Checking your emails...'
+                    };
+                    
+                case 'downloadFile':
+                    if (!entities.url) {
+                        return {
+                            command: 'error',
+                            data: { error: 'No URL specified' },
+                            response: 'I need a URL to download from.'
+                        };
+                    }
+                    
+                    return {
+                        command: 'downloadFile',
+                        data: {
+                            url: entities.url,
+                            filename: entities.filename || 'download'
+                        },
+                        response: `Downloading file from ${entities.url}...`
+                    };
+                    
+                default:
+                    // Let the self-learning engine try to handle unknown commands
+                    const learnedResponse = await this.selfLearningEngine.handleUnknownCommand(text, intent);
+                    if (learnedResponse) {
+                        return learnedResponse;
+                    }
+                    return null;
+            }
+        } catch (error) {
+            console.error('Error processing command:', error);
             return {
-                action: 'search',
-                value: searchUrl,
-                response: `Searching for "${query}" on DuckDuckGo.`
+                command: 'error',
+                data: { error: error.message },
+                response: `I encountered an error processing your command: ${error.message}`
             };
         }
         
@@ -174,32 +303,85 @@ class NLPService {
     }
 
     async generateResponse(analysis) {
-        const { type, result } = analysis;
-        
-        // Handle command responses
-        if (type === 'command') {
+        try {
+            // Handle error responses
+            if (analysis.type === 'error') {
+                return {
+                    text: `I'm sorry, I encountered an error: ${analysis.error}`,
+                    mood: 'alert',
+                    animation: 'alert',
+                    voice: { pitch: 0.9, speed: 0.9 }
+                };
+            }
+            
+            // Handle command responses
+            if (analysis.type === 'command') {
+                return {
+                    text: analysis.result.response,
+                    mood: 'professional',
+                    animation: 'process',
+                    voice: { pitch: 1.0, speed: 1.0 }
+                };
+            }
+            
+            // Get the current personality settings
+            const personality = this.personalities[this.personality];
+            
+            // Generate a response using the context manager and self-learning engine
+            const responseText = await this.generateConversationResponse(analysis);
+            
+            // Determine the mood based on sentiment analysis
+            const mood = this.determineResponseMood(analysis.sentiment);
+            
+            // Format the response based on personality
+            let formattedText = this.formatResponse(responseText, personality.responseStyle);
+            
+            // Add emojis if enabled for this personality
+            if (personality.emojis) {
+                formattedText = this.addEmojis(formattedText);
+            }
+            
+            // Construct the final response object
+            const response = {
+                text: formattedText,
+                mood: mood,
+                animation: this.getAppropriateAnimation(mood),
+                voice: {
+                    pitch: personality.pitch * (mood === 'excited' ? 1.1 : mood === 'empathetic' ? 0.9 : 1.0),
+                    speed: personality.speed * (mood === 'excited' ? 1.1 : mood === 'empathetic' ? 0.9 : 1.0)
+                }
+            };
+            
+            // Log the response for learning
+            this.selfLearningEngine.logResponse(analysis, response);
+            
+            return response;
+        } catch (error) {
+            console.error('Error generating response:', error);
             return {
-                text: result.response,
-                mood: 'professional',
-                animation: 'process',
-                voice: this.getVoiceModulation()
+                text: "I'm having trouble formulating a response right now.",
+                mood: 'alert',
+                animation: 'alert',
+                voice: { pitch: 0.9, speed: 0.9 }
             };
         }
-        
-        // Handle conversation responses
-        const personality = this.personalities[this.currentPersonality];
-        const response = {
-            text: await this.craftResponse(analysis, personality),
-            mood: this.determineResponseMood(analysis.sentiment),
-            animation: this.getAppropriateAnimation(),
-            voice: this.getVoiceModulation()
-        };
-
-        if (personality.emojis) {
-            response.text = this.addEmojis(response.text);
+    }
+    
+    async generateConversationResponse(analysis) {
+        // First, check if the self-learning engine has a learned response
+        const learnedResponse = await this.selfLearningEngine.generateResponse(analysis);
+        if (learnedResponse) {
+            return learnedResponse;
         }
-
-        return response;
+        
+        // Otherwise, use the context manager to generate a response based on context
+        const contextualResponse = await this.contextManager.generateResponse(analysis);
+        if (contextualResponse) {
+            return contextualResponse;
+        }
+        
+        // Fallback to basic intent-based responses
+        return this.craftResponse(analysis, this.personalities[this.personality]);
     }
 
     determineResponseMood(sentiment) {
@@ -211,14 +393,16 @@ class NLPService {
         return 'neutral';
     }
 
-    getAppropriateAnimation() {
+    getAppropriateAnimation(mood) {
         const animations = {
             excited: 'bounce',
             empathetic: 'nod',
             neutral: 'idle',
+            professional: 'formal',
+            alert: 'alert',
             thinking: 'process'
         };
-        return animations[this.currentMood];
+        return animations[mood || 'neutral'];
     }
 
     getVoiceModulation() {
@@ -231,25 +415,23 @@ class NLPService {
     }
 
     async loadConversationHistory() {
-        const history = await this.db.getRecentConversations(10);
-        this.contextMemory = history;
-    }
-
-    getCurrentContext() {
-        return this.contextMemory.slice(-5);
-    }
-
-    updateContext(analysis) {
-        this.contextMemory.push(analysis);
-        if (this.contextMemory.length > 20) {
-            this.contextMemory.shift();
+        try {
+            console.log('Loading conversation history...');
+            const history = await this.db.getRecentConversations(Config.nlp.maxHistoryItems || 20);
+            await this.contextManager.loadHistory(history);
+            console.log(`Loaded ${history.length} conversation items`);
+        } catch (error) {
+            console.error('Error loading conversation history:', error);
         }
     }
 
-    async extractEntities(text) {
-        // Entity recognition for names, dates, locations, etc.
-        const entities = await this.pipeline(text, { task: 'ner' });
-        return entities;
+    async setPersonality(personality) {
+        if (this.personalities[personality]) {
+            this.personality = personality;
+            await this.db.setItem('preferences', 'userSettings', { personality });
+            return true;
+        }
+        return false;
     }
 
     async craftResponse(analysis, personality) {
@@ -315,5 +497,9 @@ class NLPService {
         return text;
     }
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Your initialization code here
+});
 
 export const nlpService = new NLPService();

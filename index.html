@@ -4,13 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jarvis AI Assistant</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=Roboto+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="jarvis-ui.css">
+    <!-- GSAP for advanced animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="script.js" type="module"></script>
 </head>
 <body>
+    <!-- Animated Background -->
+    <div class="animated-background">
+        <div class="particles-container"></div>
+        <div class="grid-lines"></div>
+    </div>
+
     <!-- Startup Animation -->
     <div class="startup-overlay">
         <div class="scan-line"></div>
+        <div class="jarvis-logo">JARVIS</div>
+        <div class="startup-progress">
+            <div class="progress-bar"></div>
+            <div class="startup-text">Initializing Systems...</div>
+        </div>
         <div class="jarvis-orb" data-state="idle">
             <div class="orb-inner"></div>
             <div class="orb-particles"></div>
@@ -20,37 +37,127 @@
     </div>
 
     <div id="app">
+        <!-- Main Container with Parallax Effect -->
         <div id="jarvis-container" class="theme-transition">
-            <!-- Jarvis Orb -->
-            <div class="jarvis-orb" data-state="idle">
-                <div class="orb-inner"></div>
-                <div class="orb-particles"></div>
-                <div class="orb-rays"></div>
-                <div class="orb-glow"></div>
+            <!-- Central Orb/AI Core Animation -->
+            <div class="orb-container">
+                <div class="jarvis-orb" data-state="idle" data-personality="friendly">
+                    <div class="orb-inner"></div>
+                    <div class="orb-particles"></div>
+                    <div class="orb-rays"></div>
+                    <div class="orb-glow"></div>
+                    <div class="orb-rings"></div>
+                    <div class="orb-camera-parallax"></div>
+                </div>
             </div>
 
-            <!-- Sound Wave Visualizer -->
+            <!-- Waveform Visualizer -->
             <div class="waveform-container">
-                <div class="wave"></div>
-                <div class="wave"></div>
-                <div class="wave"></div>
+                <canvas id="waveform-canvas"></canvas>
+                <div class="wave-bezier"></div>
             </div>
 
             <!-- Response Area -->
             <div id="response-text" class="typing-text"></div>
 
-            <!-- Floating Buttons -->
-            <div class="floating-buttons">
-                <button id="mic-toggle" class="floating-button">🎤 Mic</button>
-                <button id="personality-switch" class="floating-button">🧠 Mode</button>
+            <!-- Quick Action Tiles -->
+            <div class="quick-actions">
+                <div class="action-tile" data-command="weather">
+                    <div class="tile-icon"><i class="fas fa-cloud-sun"></i></div>
+                    <div class="tile-label">Weather</div>
+                </div>
+                <div class="action-tile" data-command="time">
+                    <div class="tile-icon"><i class="fas fa-clock"></i></div>
+                    <div class="tile-label">Time</div>
+                </div>
+                <div class="action-tile" data-command="play-music">
+                    <div class="tile-icon"><i class="fas fa-music"></i></div>
+                    <div class="tile-label">Music</div>
+                </div>
+                <div class="action-tile" data-command="youtube">
+                    <div class="tile-icon"><i class="fab fa-youtube"></i></div>
+                    <div class="tile-label">YouTube</div>
+                </div>
+                <div class="action-tile" data-command="reminders">
+                    <div class="tile-icon"><i class="fas fa-bell"></i></div>
+                    <div class="tile-label">Reminders</div>
+                </div>
+                <div class="action-tile" data-command="web-search">
+                    <div class="tile-icon"><i class="fas fa-search"></i></div>
+                    <div class="tile-label">Search</div>
+                </div>
+                <div class="action-tile" data-command="email">
+                    <div class="tile-icon"><i class="fas fa-envelope"></i></div>
+                    <div class="tile-label">Email</div>
+                </div>
+                <div class="action-tile" data-command="more">
+                    <div class="tile-icon"><i class="fas fa-ellipsis-h"></i></div>
+                    <div class="tile-label">More</div>
+                </div>
+            </div>
+
+            <!-- Personality Mode Switcher -->
+            <div class="personality-switcher">
+                <div class="personality-label">Personality Mode</div>
+                <div class="personality-options">
+                    <button class="personality-option active" data-personality="friendly">
+                        <i class="fas fa-smile"></i> Friendly
+                    </button>
+                    <button class="personality-option" data-personality="funny">
+                        <i class="fas fa-laugh"></i> Funny
+                    </button>
+                    <button class="personality-option" data-personality="serious">
+                        <i class="fas fa-user-tie"></i> Serious
+                    </button>
+                    <button class="personality-option" data-personality="professional">
+                        <i class="fas fa-briefcase"></i> Professional
+                    </button>
+                </div>
+            </div>
+
+            <!-- Control Buttons -->
+            <div class="control-buttons">
+                <button id="mic-toggle" class="control-button">
+                    <i class="fas fa-microphone"></i>
+                </button>
+                <button id="terminal-toggle" class="control-button">
+                    <i class="fas fa-terminal"></i>
+                </button>
+                <button id="settings-toggle" class="control-button">
+                    <i class="fas fa-cog"></i>
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- Terminal Log -->
+    <!-- Floating Command Terminal -->
     <div id="terminal-log" class="terminal-container glassmorphic">
-        <div class="terminal-header">Terminal Log</div>
+        <div class="terminal-header">
+            <div class="terminal-title">JARVIS TERMINAL</div>
+            <div class="terminal-controls">
+                <button class="terminal-minimize"><i class="fas fa-minus"></i></button>
+                <button class="terminal-maximize"><i class="fas fa-expand"></i></button>
+                <button class="terminal-close"><i class="fas fa-times"></i></button>
+            </div>
+        </div>
         <div class="terminal-content"></div>
+        <div class="terminal-input-container">
+            <span class="terminal-prompt">></span>
+            <input type="text" class="terminal-input" placeholder="Type a command...">
+        </div>
     </div>
+
+    <!-- Assistant Bubble (Minimized State) -->
+    <div class="assistant-bubble">
+        <div class="bubble-orb">
+            <div class="bubble-orb-inner"></div>
+        </div>
+    </div>
+
+    <!-- Audio Elements -->
+    <audio id="startup-sound" src="assets/sounds/startup.mp3" preload="auto"></audio>
+    <audio id="wake-sound" src="assets/sounds/wake.mp3" preload="auto"></audio>
+    <audio id="processing-sound" src="assets/sounds/processing.mp3" preload="auto"></audio>
+    <audio id="complete-sound" src="assets/sounds/complete.mp3" preload="auto"></audio>
 </body>
 </html>
